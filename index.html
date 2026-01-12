@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>색깔 맞추기 게임</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            color: #fff;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        body.playing {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1" fill="transparent"/></svg>'), none !important;
+        }
+
+        #game-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+            position: relative;
+        }
+
+        /* 상단 정보창 */
+        .hud-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .hud-item {
+            display: flex;
+            gap: 15px;
+        }
+
+        .control-btn {
+            background-color: #555;
+            color: white;
+            border: 2px solid #fff;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 24px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* 문제 영역 */
+        #question-area {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        #question-text {
+            font-size: 150px;
+            font-weight: 900;
+            text-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s;
+        }
+
+        /* 흔들림 효과 */
+        @keyframes shake {
+            0% {
+                transform: translate(1px, 1px) rotate(0deg);
+            }
+
+            10% {
+                transform: translate(-1px, -2px) rotate(-1deg);
+            }
+
+            20% {
+                transform: translate(-3px, 0px) rotate(1deg);
+            }
+
+            30% {
+                transform: translate(3px, 2px) rotate(0deg);
+            }
+
+            40% {
+                transform: translate(1px, -1px) rotate(1deg);
+            }
+
+            50% {
+                transform: translate(-1px, 2px) rotate(-1deg);
+            }
+
+            60% {
+                transform: translate(-3px, 1px) rotate(0deg);
+            }
+
+            70% {
+                transform: translate(3px, 1px) rotate(-1deg);
+            }
+
+            80% {
+                transform: translate(-1px, -1px) rotate(1deg);
+            }
+
+            90% {
+                transform: translate(1px, 2px) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(1px, -2px) rotate(-1deg);
+            }
+        }
+
+        .shaking {
+            animation: shake 2.5s infinite;
+        }
+
+        /* 정답 버튼 영역 */
+        #answer-area {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding-bottom: 40px;
+            flex-wrap: wrap;
+        }
+
+        .answer-btn {
+            font-size: 40px;
+            font-weight: bold;
+            padding: 20px 0;
+            width: 180px;
+            border-radius: 20px;
+            border: 4px solid #fff;
+            cursor: pointer;
+            transition: transform 0.1s;
+            text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
+        }
+
+        .answer-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* 피드백 (O/X) */
+        #feedback-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 400px;
+            font-weight: bold;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+
+        /* 스크린 (시작, 종료) */
+        .screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(34, 34, 34, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .screen h1 {
+            font-size: 80px;
+            color: #FFD700;
+            margin-bottom: 20px;
+        }
+
+        .screen p {
+            font-size: 40px;
+            line-height: 1.5;
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .big-btn {
+            font-size: 50px;
+            padding: 30px 80px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 8px #2E7D32;
+        }
+
+        .big-btn:hover {
+            background-color: #45a049;
+        }
+
+        .big-btn:active {
+            box-shadow: 0 4px #2E7D32;
+            transform: translateY(4px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 색상 클래스 */
+        .c-red {
+            background-color: #FF5252;
+            color: #FFF;
+        }
+
+        .c-blue {
+            background-color: #448AFF;
+            color: #FFF;
+        }
+
+        .c-yellow {
+            background-color: #FFD700;
+            color: #000;
+        }
+
+        .c-green {
+            background-color: #69F0AE;
+            color: #000;
+        }
+
+        .c-purple {
+            background-color: #E040FB;
+            color: #FFF;
+        }
+
+        /* 텍스트 색상 전용 */
+        .t-red {
+            color: #FF5252;
+        }
+
+        .t-blue {
+            color: #448AFF;
+        }
+
+        .t-yellow {
+            color: #FFD700;
+        }
+
+        .t-green {
+            color: #69F0AE;
+        }
+
+        .t-purple {
+            color: #E040FB;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-container">
+        <!-- 상단 정보 -->
+        <div class="hud-bar">
+            <div class="hud-item">
+                <span>점수: <span id="score">0</span></span>
+                <span>단계: <span id="level">1</span></span>
+                <span style="color: #FF5252;">❤ <span id="lives">3</span></span>
+            </div>
+            <div class="hud-item">
+                <button class="control-btn" id="btn-sound" onclick="toggleSound()">소리: 켜짐</button>
+                <button class="control-btn" onclick="toggleFullscreen()">전체화면</button>
+                <button class="control-btn" onclick="quitGame()" style="background-color: #FF6B6B;">종료</button>
+            </div>
+        </div>
+
+        <!-- 문제 표시 -->
+        <div id="question-area">
+            <div id="question-text">준비</div>
+            <div id="feedback-overlay">O</div>
+        </div>
+
+        <!-- 정답 버튼 -->
+        <div id="answer-area">
+            <!-- 자바스크립트로 생성 -->
+        </div>
+    </div>
+
+    <!-- 시작 화면 -->
+    <div id="start-screen" class="screen">
+        <h1>색깔 맞추기</h1>
+        <p>글자의 <b>'뜻'</b>말고<br>글자의 <b>'색깔'</b>을 눌러주세요!</p>
+        <button class="big-btn" onclick="startGame()">게임 시작</button>
+    </div>
+
+    <!-- 종료 화면 -->
+    <div id="game-over-screen" class="screen hidden">
+        <h1>게임 종료</h1>
+        <p>최종 점수: <span id="final-score">0</span><br>도달 단계: <span id="final-level">1</span></p>
+        <button class="big-btn" onclick="startGame()">다시 하기</button>
+    </div>
+
+    <script>
+        // 게임 데이터
+        const COLORS = {
+            'red': { name: '빨강', code: '#FF5252', class: 'c-red', tClass: 't-red' },
+            'blue': { name: '파랑', code: '#448AFF', class: 'c-blue', tClass: 't-blue' },
+            'yellow': { name: '노랑', code: '#FFD700', class: 'c-yellow', tClass: 't-yellow' },
+            'green': { name: '초록', code: '#69F0AE', class: 'c-green', tClass: 't-green' },
+            'purple': { name: '보라', code: '#E040FB', class: 'c-purple', tClass: 't-purple' }
+        };
+
+        // 레벨별 사용 색상 키
+        const LEVEL_CONFIG = {
+            1: ['red', 'blue', 'yellow', 'green'], // 1단계: 4색
+            2: ['red', 'blue', 'yellow', 'green'],
+            3: ['red', 'blue', 'yellow', 'green'],
+            4: ['red', 'blue', 'yellow', 'green', 'purple'], // 4단계: 5색
+        };
+
+        let gameState = {
+            score: 0,
+            level: 1,
+            lives: 3,
+            correctCount: 0, // 레벨업을 위한 카운트
+            currentAnswerKey: '', // 현재 정답 (색상 키)
+            soundEnabled: true
+        };
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSound(type) {
+            if (!gameState.soundEnabled || !audioCtx) return;
+            initAudio();
+
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            if (type === 'correct') { // 딩동
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // 도
+                oscillator.frequency.linearRampToValueAtTime(659.25, audioCtx.currentTime + 0.1); // 미
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'wrong') { // 땡
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.3);
+            }
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            const btn = document.getElementById('btn-sound');
+            btn.innerText = `소리: ${gameState.soundEnabled ? '켜짐' : '꺼짐'}`;
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        }
+
+        function startGame() {
+            // 상태 초기화
+            gameState.score = 0;
+            gameState.level = 1;
+            gameState.lives = 3;
+            gameState.correctCount = 0;
+
+            document.getElementById('score').innerText = 0;
+            document.getElementById('level').innerText = 1;
+            document.getElementById('lives').innerText = 3;
+
+            // 화면 전환
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-over-screen').classList.add('hidden');
+
+            // 텍스트 흔들림 제거
+            document.getElementById('question-text').classList.remove('shaking');
+
+            // 커서 숨김
+            document.body.classList.add('playing');
+
+            // 자동 전체화면
+            toggleFullscreen();
+
+            nextQuestion();
+        }
+
+        function quitGame() {
+            if (confirm('게임을 종료하시겠습니까?')) {
+                document.body.classList.remove('playing');
+                if (document.fullscreenElement) document.exitFullscreen();
+                document.getElementById('start-screen').classList.remove('hidden');
+            }
+        }
+
+        function nextQuestion() {
+            // 현재 레벨에 맞는 색상 목록 가져오기
+            // 4단계 이상이면 모두 5색 사용
+            let currentColors = gameState.level >= 4 ? LEVEL_CONFIG[4] : LEVEL_CONFIG[1];
+
+            // 1. 잉크 색상 (정답) 고르기
+            const inkKey = currentColors[Math.floor(Math.random() * currentColors.length)];
+            gameState.currentAnswerKey = inkKey;
+
+            // 2. 글자 내용 (오답 유도) 고르기 - 잉크 색과 다르게 설정
+            let wordKey = inkKey;
+            while (wordKey === inkKey) {
+                wordKey = currentColors[Math.floor(Math.random() * currentColors.length)];
+            }
+
+            // 3. 화면 표시
+            const qText = document.getElementById('question-text');
+            qText.innerText = COLORS[wordKey].name; // 글자는 'wordKey'의 이름 ("빨강")
+            qText.className = ''; // 기존 클래스 초기화
+            qText.classList.add(COLORS[inkKey].tClass); // 색깔은 'inkKey'의 색상 (빨간색)
+
+            // 레벨 4 이상이면 흔들림 효과 추가
+            if (gameState.level >= 4) {
+                qText.classList.add('shaking');
+            }
+
+            // 4. 버튼 배치 (순서 섞기)
+            makeAnswerButtons(currentColors);
+        }
+
+        function makeAnswerButtons(colorKeys) {
+            const area = document.getElementById('answer-area');
+            area.innerHTML = '';
+
+            // 배열 섞기 (Fisher-Yates)
+            let shuffled = [...colorKeys];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+
+            shuffled.forEach(key => {
+                const btn = document.createElement('div');
+                btn.className = `answer-btn ${COLORS[key].class}`;
+                btn.innerText = COLORS[key].name;
+                btn.onclick = () => checkAnswer(key);
+                area.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedKey) {
+            const overlay = document.getElementById('feedback-overlay');
+
+            if (selectedKey === gameState.currentAnswerKey) {
+                // 정답
+                playSound('correct');
+                gameState.score += 10;
+                gameState.correctCount++;
+                document.getElementById('score').innerText = gameState.score;
+
+                // 피드백
+                overlay.innerText = 'O';
+                overlay.style.color = '#4CAF50';
+                overlay.style.opacity = 1;
+                setTimeout(() => overlay.style.opacity = 0, 500);
+
+                // 레벨업 체크 (5문제마다)
+                if (gameState.correctCount >= 5) {
+                    gameState.correctCount = 0;
+                    gameState.level++;
+                    document.getElementById('level').innerText = gameState.level;
+                }
+
+                nextQuestion();
+            } else {
+                // 오답
+                playSound('wrong');
+                gameState.lives--;
+                document.getElementById('lives').innerText = gameState.lives;
+
+                // 피드백
+                overlay.innerText = 'X';
+                overlay.style.color = '#FF5252';
+                overlay.style.opacity = 1;
+                setTimeout(() => overlay.style.opacity = 0, 500);
+
+                if (gameState.lives <= 0) {
+                    gameOver();
+                } else {
+                    nextQuestion();
+                }
+            }
+        }
+
+        function gameOver() {
+            document.body.classList.remove('playing');
+            document.getElementById('final-score').innerText = gameState.score;
+            document.getElementById('final-level').innerText = gameState.level;
+            document.getElementById('game-over-screen').classList.remove('hidden');
+        }
+
+    </script>
+</body>
+
+</html>
